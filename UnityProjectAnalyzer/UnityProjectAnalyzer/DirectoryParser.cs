@@ -10,10 +10,12 @@ namespace UnityProjectAnalyzer
     {
         
         private readonly String _projectPath;
+        private readonly String _outputDirectory;
 
-        public DirectoryParser(string projectPath)
+        public DirectoryParser(string projectPath, string outputDirectory)
         {
             _projectPath = projectPath;
+            _outputDirectory=outputDirectory;
         }
 
         public void ListDirectoriesAndFiles(string directoryPath)
@@ -35,8 +37,19 @@ namespace UnityProjectAnalyzer
                 // Display files
                 foreach (var file in files)
                 {
+                    
                     string relativePath = GetRelativePath(_projectPath, file);
                     Console.WriteLine("File: " + relativePath);
+
+                    if (file.EndsWith(".unity"))
+                    {
+                        UnitySceneParser unitySceneParser = new UnitySceneParser(file);
+                        List<String> hierarchy = unitySceneParser.ParseUnityScene();
+                        foreach (string line in hierarchy)
+                        {
+                            Console.WriteLine(line);
+                        }
+                    }
                 }
             }
             catch (Exception ex)

@@ -11,23 +11,21 @@ class Program
             Console.WriteLine("Usage: ./tool.exe unity_project_path output_folder_path");
             return;
         }
-        string inputPath = args[0];
-        string outputPath = args[1];
 
         string projectPath = Directory.GetCurrentDirectory(); // Get current directory (project directory)
 
-        Console.WriteLine("Project path: " + projectPath);
+        string inputDirectoryPath = Path.Combine(projectPath, args[0]); // Use your directory name
+        string outputDirectoryPath = Path.Combine(projectPath, args[1]); // Use your directory name
 
-        string inputDirectoryPath = Path.Combine(projectPath, inputPath); // Use your directory name
-        string outputDirectoryPath = Path.Combine(projectPath, outputPath); // Use your directory name
+        if (Directory.Exists(outputDirectoryPath))
+        {
+            Directory.Delete(outputDirectoryPath, true); // Delete existing directory and its contents
+        }
+
+        Directory.CreateDirectory(outputDirectoryPath);
 
 
-        // Now you can use projectPath and outputPath in your program
-        Console.WriteLine("Input Path: " + inputPath);
-        Console.WriteLine("Output Path: " + outputPath);
-        Console.WriteLine("========================================");
-
-        DirectoryParser directoryParser = new DirectoryParser(projectPath);
+        DirectoryParser directoryParser = new DirectoryParser(projectPath, outputDirectoryPath);
         directoryParser.ListDirectoriesAndFiles(inputDirectoryPath);
 
 
