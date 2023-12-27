@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using UnityProjectAnalyzer.Utils;
 
 namespace UnityProjectAnalyzer
 {
@@ -26,12 +28,12 @@ namespace UnityProjectAnalyzer
 
                 bool inGameObjectSection = false;
                 int tabCount = 0;
-
+                String gameObjectId = "";
                 foreach (string line in lines)
                 {
                     if (line.Contains("--- !u!1 &"))
                     {
-                        String gameObjectId = line.Split('&')[1].Trim();
+                        gameObjectId = line.Split('&')[1].Trim();
                         inGameObjectSection = true;
                     }
                     else if (inGameObjectSection)
@@ -40,11 +42,13 @@ namespace UnityProjectAnalyzer
                         if (match.Success)
                         {
                             string gameObjectName = line.Split(": ")[1].Trim();
+                            int depth = GetDepthForGameObject(gameObjectId);
                             hierarchy.Add(gameObjectName);
                         }
                         else if (line.Contains("---"))
                         {
                             inGameObjectSection = false;
+                            gameObjectId = "";
                         }
                     }
 
@@ -59,48 +63,53 @@ namespace UnityProjectAnalyzer
 
             return hierarchy;
         }
-        static List<string> ParseUnityTransitionForGameObject(string filePath)
+        public int GetDepthForGameObject(string gameObjectId)
         {
-            List<string> hierarchy = new List<string>();
-
-            if (File.Exists(filePath))
+            int depth = 0;
+            if (File.Exists(_scenePath))
             {
-                string[] lines = File.ReadAllLines(filePath);
-
-                bool inGameObjectSection = false;
-                int tabCount = 0;
-
+                string[] lines = File.ReadAllLines(_scenePath);
+                bool inTransformSection = false;
+                bool isTransformOfGameObject = false;
                 foreach (string line in lines)
                 {
-                    if (line.Contains("GameObject:"))
+                    if (line.Contains("--- !u!4 &"))
                     {
-                        inGameObjectSection = true;
+                        inTransformSection = true;
                     }
-                    else if (inGameObjectSection)
+                    else if (inTransformSection)
                     {
-                        Match match = Regex.Match(line, @"\s+m_Name: (.+)");
-                        if (match.Success)
+                        if (line.Contains("m_GameObject: {fileID: " + gameObjectId + "}"))
                         {
-                            string gameObjectName = match.Groups[1].Value.Trim();
-                            string formattedName = new string('\t', tabCount) + gameObjectName;
-                            hierarchy.Add(formattedName);
+                            isTransformOfGameObject = true;
+                            string gameObjectName = line.Split(": ")[1].Trim();
+                        }else if (isTransformOfGameObject)
+                        {
+                            if (line.Contains("m_Father: {fileID: "))
+                            {
+                                UnityFileExtractor unityFileExtractor = new UnityFileExtractor();
+                                string fatherId = unityFileExtractor.ExtractNumberFromFatherId(line);
+                                if (fatherId == "0")
+                                {
+                                    return depth;
+                                }
+
+                            }
                         }
                         else if (line.Contains("---"))
                         {
-                            inGameObjectSection = false;
+                            inTransformSection = false;
+                            gameObjectId = "";
                         }
                     }
 
-                    // Track tab counts for nested GameObjects
-                    tabCount = Math.Max(0, tabCount + (line.Split('-').Length - 1));
                 }
             }
             else
             {
                 Console.WriteLine("File not found!");
             }
-
-            return hierarchy;
+            return depth;
         }
     }
 }
