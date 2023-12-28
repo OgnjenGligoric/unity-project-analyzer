@@ -288,5 +288,29 @@ namespace UnityProjectAnalyzer
             return gameObjects;
 
         }
+
+        public void getAllUsages(HashSet<string> scriptUsages)
+        {
+            if (File.Exists(_scenePath))
+            {
+                string[] lines = File.ReadAllLines(_scenePath);
+
+                foreach (string line in lines)
+                {
+                    string pattern = @"m_Script:\s*\{.*guid:\s*(\w+)";
+                    Match match = Regex.Match(line, pattern);
+
+                    if (match.Success)
+                    {
+                        // Extract the guid value
+                        string guidValue = match.Groups[1].Value;
+                        scriptUsages.Add(guidValue);
+                        Console.WriteLine("GUID: " + guidValue);
+                    }
+                }
+
+            }
+      
+        }
     }
 }

@@ -25,9 +25,9 @@ class Program
         Directory.CreateDirectory(outputDirectoryPath);
 
 
-        DirectoryParser directoryParser = new DirectoryParser(projectPath, outputDirectoryPath);
-        directoryParser.ListDirectoriesAndFiles(inputDirectoryPath);
-
+        UnityProjectParser unityProjectParser = new UnityProjectParser(inputDirectoryPath, outputDirectoryPath);
+        unityProjectParser.ConstructSceneHierarchy(inputDirectoryPath);
+        unityProjectParser.WriteUnusedScripts(outputDirectoryPath);
 
     }
 
