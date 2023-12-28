@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityProjectAnalyzer.Models;
 
 namespace UnityProjectAnalyzer
 {
@@ -44,11 +45,17 @@ namespace UnityProjectAnalyzer
                     if (file.EndsWith(".unity"))
                     {
                         UnitySceneParser unitySceneParser = new UnitySceneParser(file);
-                        List<String> hierarchy = unitySceneParser.ParseUnityScene();
-                        foreach (string line in hierarchy)
+                        List<Transform> transforms = unitySceneParser.getAllTransforms();
+                        List<GameObject> gameObjects = unitySceneParser.getAllGameObjects();
+                        foreach (Transform transform in transforms)
                         {
-                            Console.WriteLine(line);
+                            Console.WriteLine(transform.ToString());
                         }
+                        foreach (GameObject gameObject in gameObjects)
+                        {
+                            Console.WriteLine(gameObject.ToString());
+                        }
+                        
                     }
                 }
             }
