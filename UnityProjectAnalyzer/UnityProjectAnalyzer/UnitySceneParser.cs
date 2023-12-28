@@ -21,296 +21,147 @@ namespace UnityProjectAnalyzer
             _scenePath = scenePath;
         }
 
-        public List<string> ParseUnityScene()
-        {
-            List<string> hierarchy = new List<string>();
 
-            if (File.Exists(_scenePath))
-            {
-                string[] lines = File.ReadAllLines(_scenePath);
-
-                bool inGameObjectSection = false;
-                int tabCount = 0;
-                String gameObjectId = "";
-                foreach (string line in lines)
-                {
-                    if (line.Contains("--- !u!1 &"))
-                    {
-                        gameObjectId = line.Split('&')[1].Trim();
-                        inGameObjectSection = true;
-                    }
-                    else if (inGameObjectSection)
-                    {
-                        Match match = Regex.Match(line, @"\s+m_Name: (.+)");
-                        if (match.Success)
-                        {
-                            string gameObjectName = line.Split(": ")[1].Trim();
-                            int depth = GetDepthForGameObject(gameObjectId);
-                            hierarchy.Add(new StringBuilder().Insert(0, "--", depth).ToString() + gameObjectName);
-                        }
-                        else if (line.Contains("---"))
-                        {
-                            inGameObjectSection = false;
-                            gameObjectId = "";
-                        }
-                    }
-
-                    // Track tab counts for nested GameObjects
-                    tabCount = Math.Max(0, tabCount + (line.Split('-').Length - 1));
-                }
-            }
-            else
-            {
-                Console.WriteLine("File not found!");
-            }
-
-            return hierarchy;
-        }
-
-        public int GetDepthForGameObject(string gameObjectId)
-        {
-            if (File.Exists(_scenePath))
-            {
-                string[] lines = File.ReadAllLines(_scenePath);
-                bool inTransformSection = false;
-                bool isTransformOfGameObject = false;
-                foreach (string line in lines)
-                {
-                    if (line.Contains("--- !u!4 &"))
-                    {
-                        inTransformSection = true;
-                    }
-                    else if (inTransformSection)
-                    {
-                        if (line.Contains("m_GameObject: {fileID: " + gameObjectId + "}"))
-                        {
-                            isTransformOfGameObject = true;
-                        }
-                        else if (isTransformOfGameObject)
-                        {
-                            if (!line.Contains("m_Father: {fileID: ")) continue;
-
-
-                            UnityFileExtractor unityFileExtractor = new UnityFileExtractor();
-                            string fatherId = unityFileExtractor.ExtractNumberFromFatherId(line);
-                            if (fatherId == "0")
-                            {
-                                return 0;
-                            }
-
-                            return GoThroughAllFathers(fatherId);
-                        }
-                        else if (line.Contains("---"))
-                        {
-                            inTransformSection = false;
-                            gameObjectId = "";
-                        }
-                    }
-
-                }
-            }
-            else
-            {
-                Console.WriteLine("File not found!");
-            }
-
-            return 0;
-        }
-
-        private int GoThroughAllFathers(string fatherId, int i = 1)
-        {
-
-            if (File.Exists(_scenePath))
-            {
-                string[] lines = File.ReadAllLines(_scenePath);
-                bool inTransformSection = false;
-                foreach (string line in lines)
-                {
-                    if (line.Contains("--- !u!4 &" + fatherId))
-                    {
-                        inTransformSection = true;
-                    }
-                    else if (inTransformSection)
-                    {
-                        if (line.Contains("m_Father: {fileID: "))
-                        {
-                            UnityFileExtractor unityFileExtractor = new UnityFileExtractor();
-                            string nextFatherId = unityFileExtractor.ExtractNumberFromFatherId(line);
-                            if (nextFatherId == "0")
-                            {
-                                return i;
-                            }
-
-                            return GoThroughAllFathers(nextFatherId, i + 1);
-                        }
-
-                        if (line.Contains("---"))
-                        {
-                            inTransformSection = false;
-
-                        }
-                    }
-
-                }
-            }
-            else
-            {
-                Console.WriteLine("File not found!");
-            }
-
-            return i;
-
-        }
-
-
-        public List<Transform> getAllTransforms()
+        public List<Transform> GetAllTransforms()
         {
             List<Transform> transforms = new List<Transform>();
             String transformId = "";
             String gameObjectId = "";
-            if (File.Exists(_scenePath))
-            {
-                string[] lines = File.ReadAllLines(_scenePath);
-                bool inTransformSection = false;
-                bool inTransformChildrenSection = false;
-                List<String> transformChildren = new List<String>();
 
-                foreach (string line in lines)
-                {
-                    if (line.Contains("--- !u!4 &"))
-                    {
-                        transformId = line.Split('&')[1].Trim();
-                        inTransformSection = true;
-                    }
-                    else if (inTransformSection)
-                    {
-                        var regex = new Regex(@"m_GameObject:\s+\{fileID:\s+(\d+)");
-                        var matchGameObject = regex.Match(line);
+            if (!File.Exists(_scenePath)) return transforms;
 
-                        if (matchGameObject.Success)
-                        {
-                            gameObjectId = matchGameObject.Groups[1].Value;
+            string[] lines = File.ReadAllLines(_scenePath);
+            bool inTransformSection = false;
+            bool inTransformChildrenSection = false;
+            List<String> transformChildren = new List<String>();
 
-                        }
-                        else if (line.Contains("m_Children:"))
-                        {
-                            inTransformChildrenSection = true;
-                            transformChildren = new List<String>();
-                        }
-                        else if (inTransformChildrenSection)
-                        {
-                            if (!line.Contains("- {fileID: "))
-                            {
-                                inTransformChildrenSection = false;
-                            }
-                            else
-                            {
-                                string patternChildrenTransformId = @"fileID:\s*(\d+)";
+            ParseAllTransforms(lines, transformId, inTransformSection, gameObjectId, inTransformChildrenSection, transformChildren, transforms);
 
-                                Match match = Regex.Match(line, patternChildrenTransformId);
-
-                                if (match.Success)
-                                {
-                                    transformChildren.Add(match.Groups[1].Value);
-                                }
-                            }
-
-                            
-                        }
-                        if (line.Contains("---"))
-                        {
-                            if (inTransformSection)
-                            {
-                                Transform transform = new Transform(transformId, gameObjectId, transformChildren);
-                                transforms.Add(transform);
-                            }
-
-                            inTransformSection = false;
-
-                        }
-
-                    }
-                }
-
-                
-
-
-            }
             return transforms;
 
         }
 
-        public List<GameObject> getAllGameObjects()
+        private static void ParseAllTransforms(string[] lines, string transformId, bool inTransformSection, string gameObjectId,
+            bool inTransformChildrenSection, List<string> transformChildren, List<Transform> transforms)
+        {
+            foreach (string line in lines)
+            {
+                if (line.Contains("--- !u!4 &"))
+                {
+                    transformId = line.Split('&')[1].Trim();
+                    inTransformSection = true;
+                }
+                else if (inTransformSection)
+                {
+                    var regex = new Regex(@"m_GameObject:\s+\{fileID:\s+(\d+)");
+                    var matchGameObject = regex.Match(line);
+
+                    if (matchGameObject.Success)
+                    {
+                        gameObjectId = matchGameObject.Groups[1].Value;
+                    }
+                    else if (line.Contains("m_Children:"))
+                    {
+                        inTransformChildrenSection = true;
+                        transformChildren = new List<String>();
+                    }
+                    else if (inTransformChildrenSection)
+                    {
+                        if (!line.Contains("- {fileID: "))
+                        {
+                            inTransformChildrenSection = false;
+                        }
+                        else
+                        {
+                            string patternChildrenTransformId = @"fileID:\s*(\d+)";
+
+                            Match match = Regex.Match(line, patternChildrenTransformId);
+
+                            if (match.Success)
+                            {
+                                transformChildren.Add(match.Groups[1].Value);
+                            }
+                        }
+                    }
+
+                    if (!line.Contains("---")) continue;
+
+                    if (inTransformSection)
+                    {
+                        Transform transform = new Transform(transformId, gameObjectId, transformChildren);
+                        transforms.Add(transform);
+                    }
+
+                    inTransformSection = false;
+                }
+            }
+        }
+
+        public List<GameObject> GetAllGameObjects()
         {
             List<GameObject> gameObjects = new List<GameObject>();
             String gameObjectId = "";
             String gameObjectName = "";
-            if (File.Exists(_scenePath))
+            if (!File.Exists(_scenePath)) return gameObjects;
+
+            string[] lines = File.ReadAllLines(_scenePath);
+            bool inGameObjectSection = false;
+
+            foreach (string line in lines)
             {
-                string[] lines = File.ReadAllLines(_scenePath);
-                bool inGameObjectSection = false;
-
-                foreach (string line in lines)
+                if (line.Contains("--- !u!1 &"))
                 {
-                    if (line.Contains("--- !u!1 &"))
-                    {
-                        gameObjectId = line.Split('&')[1].Trim();
-                        inGameObjectSection = true;
-                    }
-                    else if (inGameObjectSection)
-                    {
-                        // Regular expression pattern to extract the string value of m_Name
-                        string pattern = @"m_Name:\s*(.+)";
-
-                        Match match = Regex.Match(line, pattern);
-
-                        if (match.Success)
-                        {
-                            gameObjectName = match.Groups[1].Value;
-                        }
-
-                        if (line.Contains("---"))
-                        {
-                            if (inGameObjectSection)
-                            {
-                                GameObject gameObject = new GameObject(gameObjectId, gameObjectName);
-                                gameObjects.Add(gameObject);
-                            }
-
-                            inGameObjectSection = false;
-
-                        }
-
-                    }
+                    gameObjectId = line.Split('&')[1].Trim();
+                    inGameObjectSection = true;
                 }
+                else if (inGameObjectSection)
+                {
+                    // Regular expression pattern to extract the string value of m_Name
+                    string pattern = @"m_Name:\s*(.+)";
 
+                    Match match = Regex.Match(line, pattern);
+
+                    if (match.Success)
+                    {
+                        gameObjectName = match.Groups[1].Value;
+                    }
+
+                    if (!line.Contains("---")) continue;
+
+                    if (inGameObjectSection)
+                    {
+                        GameObject gameObject = new GameObject(gameObjectId, gameObjectName);
+                        gameObjects.Add(gameObject);
+                    }
+
+                    inGameObjectSection = false;
+
+                }
             }
             return gameObjects;
 
         }
 
-        public void getAllUsages(HashSet<string> scriptUsages)
+        public void GetAllUsages(HashSet<string> scriptUsages)
         {
-            if (File.Exists(_scenePath))
+            if (!File.Exists(_scenePath)) return;
+
+            string[] lines = File.ReadAllLines(_scenePath);
+
+            foreach (string line in lines)
             {
-                string[] lines = File.ReadAllLines(_scenePath);
+                string pattern = @"m_Script:\s*\{.*guid:\s*(\w+)";
+                Match match = Regex.Match(line, pattern);
 
-                foreach (string line in lines)
-                {
-                    string pattern = @"m_Script:\s*\{.*guid:\s*(\w+)";
-                    Match match = Regex.Match(line, pattern);
+                if (!match.Success) continue;
 
-                    if (match.Success)
-                    {
-                        // Extract the guid value
-                        string guidValue = match.Groups[1].Value;
-                        scriptUsages.Add(guidValue);
-                        Console.WriteLine("GUID: " + guidValue);
-                    }
-                }
+                // Extract the guid value
 
+                string guidValue = match.Groups[1].Value;
+                scriptUsages.Add(guidValue);
+                Console.WriteLine("GUID: " + guidValue);
             }
-      
+
         }
     }
 }

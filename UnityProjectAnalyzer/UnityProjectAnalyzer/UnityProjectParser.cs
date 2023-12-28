@@ -11,13 +11,13 @@ namespace UnityProjectAnalyzer
     public class UnityProjectParser
     {
         
-        private readonly String _InputProjectPath;
+        private readonly String _inputProjectPath;
         private readonly String _outputDirectory;
         public HashSet<String> ScriptUsages;
         public HashSet<Script> AllScripts;
         public UnityProjectParser(string inputProjectPath, string outputDirectory)
         {
-            _InputProjectPath = inputProjectPath;
+            _inputProjectPath = inputProjectPath;
             _outputDirectory=outputDirectory;
             ScriptUsages = new HashSet<string>();
             AllScripts = new HashSet<Script>();
@@ -34,34 +34,23 @@ namespace UnityProjectAnalyzer
                 // Display directories
                 foreach (var directory in directories)
                 {
-                    string relativePath = GetRelativePath(_InputProjectPath, directory);
-                    Console.WriteLine("Directory: " + relativePath);
-                    ConstructSceneHierarchy(directory); // Recursively list contents
+                    showDirectoryRelativePath(directory);
                 }
 
                 // Display files
                 foreach (var file in files)
                 {
                     
-                    string relativePath = GetRelativePath(_InputProjectPath, file);
+                    string relativePath = GetRelativePath(_inputProjectPath, file);
                     Console.WriteLine("File: " + relativePath);
 
                     if (file.EndsWith(".unity"))
                     {
-                        UnitySceneParser unitySceneParser = new UnitySceneParser(file);
-                        List<Transform> transforms = unitySceneParser.getAllTransforms();
-                        List<GameObject> gameObjects = unitySceneParser.getAllGameObjects();
-                        unitySceneParser.getAllUsages(ScriptUsages);
-                        var hierarchyBuilder = new HierarchyBuilder(transforms, gameObjects);
-                        var hierarchy = hierarchyBuilder.GetHierarchy();
-
-                        WriteDumpToOutputProject(file, hierarchy);
-                        Console.WriteLine("\n======== HIERARCHY ========");
-                        Console.WriteLine(hierarchy);
-                    }else if (file.EndsWith(".cs.meta"))
+                        SceneParsing(file);
+                    }
+                    else if (file.EndsWith(".cs.meta"))
                     {
-                        ScriptParser scriptParser = new ScriptParser(file);
-                        AllScripts.Add(new Script(scriptParser.GetGUID(), GetRelativePath(_InputProjectPath, file)));
+                        ExtractAllExistingScripts(file);
                     }
                 }
             }
@@ -69,6 +58,33 @@ namespace UnityProjectAnalyzer
             {
                 Console.WriteLine("Error: " + ex.Message);
             }
+        }
+
+        private void ExtractAllExistingScripts(string file)
+        {
+            ScriptParser scriptParser = new ScriptParser(file);
+            AllScripts.Add(new Script(scriptParser.GetGUID(), GetRelativePath(_inputProjectPath, file)));
+        }
+
+        private void showDirectoryRelativePath(string directory)
+        {
+            string relativePath = GetRelativePath(_inputProjectPath, directory);
+            Console.WriteLine("Directory: " + relativePath);
+            ConstructSceneHierarchy(directory); // Recursively list contents
+        }
+
+        private void SceneParsing(string file)
+        {
+            UnitySceneParser unitySceneParser = new UnitySceneParser(file);
+            List<Transform> transforms = unitySceneParser.GetAllTransforms();
+            List<GameObject> gameObjects = unitySceneParser.GetAllGameObjects();
+            unitySceneParser.GetAllUsages(ScriptUsages);
+            var hierarchyBuilder = new HierarchyBuilder(transforms, gameObjects);
+            var hierarchy = hierarchyBuilder.GetHierarchy();
+
+            WriteDumpToOutputProject(file, hierarchy);
+            Console.WriteLine("\n======== HIERARCHY ========");
+            Console.WriteLine(hierarchy);
         }
 
         private void WriteDumpToOutputProject(string file, string hierarchy)
@@ -82,21 +98,7 @@ namespace UnityProjectAnalyzer
 
             try
             {
-                if (File.Exists(dumpFilePath))
-                {
-                    // Replace content in an existing file
-                    File.WriteAllText(dumpFilePath, hierarchy);
-                    Console.WriteLine("Content replaced in the dump file at: " + dumpFilePath);
-                }
-                else
-                {
-                    // Create a new file and write content to it
-                    using (StreamWriter writer = File.CreateText(dumpFilePath))
-                    {
-                        writer.WriteLine(hierarchy);
-                    }
-                    Console.WriteLine("New dump file created at: " + dumpFilePath);
-                }
+                DumpHierarchy(hierarchy, dumpFilePath);
             }
             catch (Exception e)
             {
@@ -105,9 +107,25 @@ namespace UnityProjectAnalyzer
 
         }
 
+        private static void DumpHierarchy(string hierarchy, string dumpFilePath)
+        {
+            if (File.Exists(dumpFilePath))
+            {
+                File.WriteAllText(dumpFilePath, hierarchy);
+                Console.WriteLine("Content replaced in the dump file at: " + dumpFilePath);
+            }
+            else
+            {
+                using (StreamWriter writer = File.CreateText(dumpFilePath))
+                {
+                    writer.WriteLine(hierarchy);
+                }
+                Console.WriteLine("New dump file created at: " + dumpFilePath);
+            }
+        }
+
         private static string GetRelativePath(string projectPath, string fullPath)
         {
-            // Make the path relative to the project directory
             return Path.GetRelativePath(projectPath, fullPath);
         }
 
@@ -120,11 +138,10 @@ namespace UnityProjectAnalyzer
                 bool scriptUsed = false;
                 foreach (string scriptUsage in ScriptUsages)
                 {
-                    if (scriptUsage.Equals(script.Guid))
-                    {
-                        scriptUsed = true;
-                        break;
-                    }
+                    if (!scriptUsage.Equals(script.Guid)) continue;
+
+                    scriptUsed = true;
+                    break;
                 }
 
                 if (!scriptUsed)
@@ -133,21 +150,20 @@ namespace UnityProjectAnalyzer
                 }
             }
 
-            writeTofile(unusedScripts);
+            WriteUnusedScriptsToFile(unusedScripts);
         }
 
-        private void writeTofile(List<Script> unusedScripts)
+        private void WriteUnusedScriptsToFile(List<Script> unusedScripts)
         {
             string filePath = Path.Combine(_outputDirectory, "UnusedScripts.txt");
 
-            using (StreamWriter writer = new StreamWriter(filePath))
-            {
-                writer.WriteLine("Relative Path,GUID");
+            using StreamWriter writer = new StreamWriter(filePath);
+            
+            writer.WriteLine("Relative Path,GUID");
 
-                foreach (Script script in unusedScripts)
-                {
-                    writer.WriteLine($"{script.Path},{script.Guid}");
-                }
+            foreach (Script script in unusedScripts)
+            {
+                writer.WriteLine($"{script.Path},{script.Guid}");
             }
         }
     }
