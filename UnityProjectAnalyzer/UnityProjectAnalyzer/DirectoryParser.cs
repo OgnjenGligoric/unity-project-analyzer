@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityProjectAnalyzer.Models;
 
 namespace UnityProjectAnalyzer
 {
@@ -10,10 +11,12 @@ namespace UnityProjectAnalyzer
     {
         
         private readonly String _projectPath;
+        private readonly String _outputDirectory;
 
-        public DirectoryParser(string projectPath)
+        public DirectoryParser(string projectPath, string outputDirectory)
         {
             _projectPath = projectPath;
+            _outputDirectory=outputDirectory;
         }
 
         public void ListDirectoriesAndFiles(string directoryPath)
@@ -35,8 +38,25 @@ namespace UnityProjectAnalyzer
                 // Display files
                 foreach (var file in files)
                 {
+                    
                     string relativePath = GetRelativePath(_projectPath, file);
                     Console.WriteLine("File: " + relativePath);
+
+                    if (file.EndsWith(".unity"))
+                    {
+                        UnitySceneParser unitySceneParser = new UnitySceneParser(file);
+                        List<Transform> transforms = unitySceneParser.getAllTransforms();
+                        List<GameObject> gameObjects = unitySceneParser.getAllGameObjects();
+                        foreach (Transform transform in transforms)
+                        {
+                            Console.WriteLine(transform.ToString());
+                        }
+                        foreach (GameObject gameObject in gameObjects)
+                        {
+                            Console.WriteLine(gameObject.ToString());
+                        }
+                        
+                    }
                 }
             }
             catch (Exception ex)

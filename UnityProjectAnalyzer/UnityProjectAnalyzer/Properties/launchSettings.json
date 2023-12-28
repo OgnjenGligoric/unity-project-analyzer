@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "UnityProjectAnalyzer": {
+      "commandName": "Project",
+      "commandLineArgs": "TestCase01 TestCase01.gold",
+      "workingDirectory": "O:\\Fakultet\\IntershipJetBrains\\unity-project-analyzer\\UnityProjectAnalyzer\\UnityProjectAnalyzer\\bin\\Debug\\net6.0"
+    }
+  }
+}
