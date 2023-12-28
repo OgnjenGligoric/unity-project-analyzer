@@ -8,39 +8,42 @@ using UnityProjectAnalyzer.Utils;
 
 namespace UnityProjectAnalyzer
 {
-    public class DirectoryParser
+    public class UnityProjectParser
     {
         
-        private readonly String _projectPath;
+        private readonly String _InputProjectPath;
         private readonly String _outputDirectory;
-
-        public DirectoryParser(string projectPath, string outputDirectory)
+        public HashSet<String> ScriptUsages;
+        public HashSet<Script> AllScripts;
+        public UnityProjectParser(string inputProjectPath, string outputDirectory)
         {
-            _projectPath = projectPath;
+            _InputProjectPath = inputProjectPath;
             _outputDirectory=outputDirectory;
+            ScriptUsages = new HashSet<string>();
+            AllScripts = new HashSet<Script>();
         }
 
-        public void ListDirectoriesAndFiles(string directoryPath)
+        public void ConstructSceneHierarchy(string currentDirectory)
         {
             try
             {
                 // Get directories and files within the specified directory
-                string[] directories = Directory.GetDirectories(directoryPath);
-                string[] files = Directory.GetFiles(directoryPath);
-
+                string[] directories = Directory.GetDirectories(currentDirectory);
+                string[] files = Directory.GetFiles(currentDirectory);
+            
                 // Display directories
                 foreach (var directory in directories)
                 {
-                    string relativePath = GetRelativePath(_projectPath, directory);
+                    string relativePath = GetRelativePath(_InputProjectPath, directory);
                     Console.WriteLine("Directory: " + relativePath);
-                    ListDirectoriesAndFiles(directory); // Recursively list contents
+                    ConstructSceneHierarchy(directory); // Recursively list contents
                 }
 
                 // Display files
                 foreach (var file in files)
                 {
                     
-                    string relativePath = GetRelativePath(_projectPath, file);
+                    string relativePath = GetRelativePath(_InputProjectPath, file);
                     Console.WriteLine("File: " + relativePath);
 
                     if (file.EndsWith(".unity"))
@@ -48,13 +51,17 @@ namespace UnityProjectAnalyzer
                         UnitySceneParser unitySceneParser = new UnitySceneParser(file);
                         List<Transform> transforms = unitySceneParser.getAllTransforms();
                         List<GameObject> gameObjects = unitySceneParser.getAllGameObjects();
-
+                        unitySceneParser.getAllUsages(ScriptUsages);
                         var hierarchyBuilder = new HierarchyBuilder(transforms, gameObjects);
                         var hierarchy = hierarchyBuilder.GetHierarchy();
 
                         WriteDumpToOutputProject(file, hierarchy);
                         Console.WriteLine("\n======== HIERARCHY ========");
                         Console.WriteLine(hierarchy);
+                    }else if (file.EndsWith(".cs.meta"))
+                    {
+                        ScriptParser scriptParser = new ScriptParser(file);
+                        AllScripts.Add(new Script(scriptParser.GetGUID(), GetRelativePath(_InputProjectPath, file)));
                     }
                 }
             }
@@ -102,6 +109,46 @@ namespace UnityProjectAnalyzer
         {
             // Make the path relative to the project directory
             return Path.GetRelativePath(projectPath, fullPath);
+        }
+
+
+        public void WriteUnusedScripts(string outputDirectoryPath)
+        {
+            List<Script> unusedScripts = new List<Script>();
+            foreach (Script script in AllScripts)
+            {
+                bool scriptUsed = false;
+                foreach (string scriptUsage in ScriptUsages)
+                {
+                    if (scriptUsage.Equals(script.Guid))
+                    {
+                        scriptUsed = true;
+                        break;
+                    }
+                }
+
+                if (!scriptUsed)
+                {
+                    unusedScripts.Add(script);
+                }
+            }
+
+            writeTofile(unusedScripts);
+        }
+
+        private void writeTofile(List<Script> unusedScripts)
+        {
+            string filePath = Path.Combine(_outputDirectory, "UnusedScripts.txt");
+
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine("Relative Path,GUID");
+
+                foreach (Script script in unusedScripts)
+                {
+                    writer.WriteLine($"{script.Path},{script.Guid}");
+                }
+            }
         }
     }
 }
