@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityProjectAnalyzer.Models;
+using UnityProjectAnalyzer.Utils;
 
 namespace UnityProjectAnalyzer
 {
@@ -47,15 +48,13 @@ namespace UnityProjectAnalyzer
                         UnitySceneParser unitySceneParser = new UnitySceneParser(file);
                         List<Transform> transforms = unitySceneParser.getAllTransforms();
                         List<GameObject> gameObjects = unitySceneParser.getAllGameObjects();
-                        foreach (Transform transform in transforms)
-                        {
-                            Console.WriteLine(transform.ToString());
-                        }
-                        foreach (GameObject gameObject in gameObjects)
-                        {
-                            Console.WriteLine(gameObject.ToString());
-                        }
-                        
+
+                        var hierarchyBuilder = new HierarchyBuilder(transforms, gameObjects);
+                        var hierarchy = hierarchyBuilder.GetHierarchy();
+
+                        WriteDumpToOutputProject(file, hierarchy);
+                        Console.WriteLine("\n======== HIERARCHY ========");
+                        Console.WriteLine(hierarchy);
                     }
                 }
             }
@@ -63,6 +62,40 @@ namespace UnityProjectAnalyzer
             {
                 Console.WriteLine("Error: " + ex.Message);
             }
+        }
+
+        private void WriteDumpToOutputProject(string file, string hierarchy)
+        {
+
+            char separator = Path.DirectorySeparatorChar;
+            string outputFileDumpName = file.Split(separator)[^1] + ".dump";
+
+
+            string dumpFilePath = Path.Combine(_outputDirectory, outputFileDumpName);
+
+            try
+            {
+                if (File.Exists(dumpFilePath))
+                {
+                    // Replace content in an existing file
+                    File.WriteAllText(dumpFilePath, hierarchy);
+                    Console.WriteLine("Content replaced in the dump file at: " + dumpFilePath);
+                }
+                else
+                {
+                    // Create a new file and write content to it
+                    using (StreamWriter writer = File.CreateText(dumpFilePath))
+                    {
+                        writer.WriteLine(hierarchy);
+                    }
+                    Console.WriteLine("New dump file created at: " + dumpFilePath);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error updating the dump file: " + e.Message);
+            }
+
         }
 
         private static string GetRelativePath(string projectPath, string fullPath)
