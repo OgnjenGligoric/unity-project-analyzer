@@ -17,21 +17,19 @@ namespace UnityProjectAnalyzer
         }
         public string GetGUID()
         {
-            if (File.Exists(_scriptPath))
+            if (!File.Exists(_scriptPath)) return "";
+
+            string[] lines = File.ReadAllLines(_scriptPath);
+
+            foreach (string line in lines)
             {
-                string[] lines = File.ReadAllLines(_scriptPath);
+                string pattern = @"guid:\s*(\w+)";
+                Match match = Regex.Match(line, pattern);
 
-                foreach (string line in lines)
-                {
-                    string pattern = @"guid:\s*(\w+)";
-                    Match match = Regex.Match(line, pattern);
+                if (!match.Success) continue;
 
-                    if (match.Success)
-                    {
-                        string guidValue = match.Groups[1].Value;
-                        return guidValue;
-                    }
-                }
+                string guidValue = match.Groups[1].Value;
+                return guidValue;
             }
             return "";
         }
